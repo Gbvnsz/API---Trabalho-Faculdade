@@ -28,10 +28,15 @@ class Produto(Base):
 
 Base.metadata.create_all(engine)
 
-@app.post("/bancodados")
+@app.post("/produtos")
 def criar_produto(produtos: produto, db: Session = Depends(get_db)): #FastAPI, antes de rodar minha função, chama o get_db, pega a session que ele fornece, e me entrega no parâmetro db
     novo_produto = Produto(nome = produtos.nome, preco = produtos.preco)
     db.add(novo_produto) # coloca na fila 
     db.commit() # confirma 
     db.refresh(novo_produto) # recarrega o objeto
     return {"nome": novo_produto.nome, "preco": novo_produto.preco}
+
+@app.get("/produtos")
+def listar_produtos(db: Session = Depends(get_db)):
+    lista_produtos = db.query(Produto).all()
+    return lista_produtos
