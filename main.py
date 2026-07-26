@@ -4,6 +4,12 @@ from sqlalchemy.orm import declarative_base, sessionmaker,Session
 from sqlalchemy import create_engine
 from sqlalchemy import Column, Integer, String, Float
 from passlib.context import CryptContext
+from jose import jwt
+from datetime import datetime, timedelta
+
+# Usei o powershell para gerar uma chave aleatória 
+SECRET_KEY = "vp75eutcSmaOEZlJCV6M0ULHhqQWdno89B41KGyNPjRDiszkYw"   
+ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 engine = create_engine("sqlite:///banco.db")
@@ -17,7 +23,13 @@ def get_db():
         yield db
     finally:
         db.close()
-
+        
+def criarToken(dados: dict):
+    token_lido = dados.copy()
+    expira = datetime.utcnow() + timedelta(minutes=30)
+    token_lido.update({"exp": expira})
+    token = jwt.encode(token_lido, SECRET_KEY, algorithm = ALGORITHM)
+    return token
 class produto(BaseModel):
     nome: str
     preco: float
@@ -70,4 +82,5 @@ def verificacao(email_recebido: usuario, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="E-mail ou senha inválidos.")
     if not pwd_context.verify(email_recebido.senha, usuario_cadastrado.senha):
         raise HTTPException(status_code=401, detail="E-mail ou senha inválidos.")
-    return {"mensagem": "login ok"}
+    token = criarToken({"sub": usuario_cadastrado.email, "perfil": usuario_cadastrado.perfil})
+    return {"accessToken": token, "tokenType": "Bearer"}
