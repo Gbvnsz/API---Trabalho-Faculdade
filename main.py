@@ -1,15 +1,18 @@
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from sqlalchemy.orm import declarative_base, sessionmaker,Session
 from sqlalchemy import create_engine
 from sqlalchemy import Column, Integer, String, Float
 from passlib.context import CryptContext
-from jose import jwt
+from jose import jwt, JWTError
 from datetime import datetime, timedelta
 
 # Usei o powershell para gerar uma chave aleatória 
 SECRET_KEY = "vp75eutcSmaOEZlJCV6M0ULHhqQWdno89B41KGyNPjRDiszkYw"   
 ALGORITHM = "HS256"
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 engine = create_engine("sqlite:///banco.db")
@@ -30,6 +33,16 @@ def criarToken(dados: dict):
     token_lido.update({"exp": expira})
     token = jwt.encode(token_lido, SECRET_KEY, algorithm = ALGORITHM)
     return token
+
+def usuariosCadastrados(token: str = Depends(oauth2_scheme)):
+    try:
+        conteudo = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = conteudo.get("sub")
+        if email is None:
+            raise HTTPException(status_code=401, detail="Token inválido.")
+        return conteudo
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado.")
 class produto(BaseModel):
     nome: str
     preco: float
@@ -63,7 +76,7 @@ def criar_produto(produto: produto, db: Session = Depends(get_db)):
     return {"nome": novo_produto.nome, "preco": novo_produto.preco}
 
 @app.get("/produtos")
-def lista_produtos(db: Session = Depends(get_db)):
+def lista_produtos(db: Session = Depends(get_db), usuario: dict = Depends(usuariosCadastrados)):
     lista_produtos = db.query(Produto).all()
     return lista_produtos
 
