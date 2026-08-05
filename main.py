@@ -142,9 +142,11 @@ def verificacao(email_recebido: usuario, db: Session = Depends(get_db)):
     return {"accessToken": token, "tokenType": "Bearer"}
 
 @app.post("/pedidos", status_code=201)
-def criar_pedido(dados: pedido, db: Session = Depends(get_db)):
+def criar_pedido(dados: pedido, db: Session = Depends(get_db), usuario_token: dict = Depends(usuariosCadastrados)):
     
     total = 0.0
+    
+    itens_validados = []
     
     for item in dados.itens:
         
@@ -157,8 +159,38 @@ def criar_pedido(dados: pedido, db: Session = Depends(get_db)):
             raise HTTPException(status_code=409, detail="Estoque insuficiente.")
         
         total = total + (produto_banco.preco * item.quantidade)
+        
+        itens_validados.append({
+            "produto_id": item.produto_id,
+            "quantidade": item.quantidade,
+            "preco": produto_banco.preco,
+            "estoque": estoque_banco
+        })
+        
+    email_do_token = usuario_token.get("sub")
+    cliente = db.query(Usuario).filter(Usuario.email == email_do_token).first()
     
-    return {"canal": dados.canalPedido, "quantidade_de_itens": len(dados.itens), "total_calculado": total}
+    novo_pedido = Pedido(cliente_id = cliente_id, canalPedido= dados.canalPedido, status="AGUARDANDO_PAGAMENTO", total=total)
+    db.add(novo_pedido)
+    db.commit()
+    db.refresh(novo_pedido)
+    
+    for validado in itens_validados:
+        novo_item = Item_pedido(
+            pedido_id=novo_pedido.id,           
+            produto_id=validado["produto_id"],
+            quantidade_pedido=validado["quantidade"],
+            preco_pedido=validado["preco"]       
+        )
+        db.add(novo_item)
+    
+        validado["estoque"].quantidade_estoque = validado["estoque"].quantidade_estoque - validado["quantidade"]
+
+        db.commit()
+    
+    db.commit()
+    
+    return {"pedidoId": novo_pedido.id, "status": novo_pedido.status, "total": novo_pedido.total}
 
 @app.post("/estoques")
 def criar_estoque(estoque: estoque, db: Session = Depends(get_db)):
