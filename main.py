@@ -47,6 +47,12 @@ def usuariosCadastrados(token: str = Depends(oauth2_scheme)):
         return conteudo
     except JWTError:
         raise HTTPException(status_code=401, detail="Token inválido ou expirado.")
+
+def apenas_gerente(usuario_token: dict = Depends(usuariosCadastrados)):
+    if usuario_token.get("perfil") != "Gerente":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer ser Gerente.")
+    return usuario_token
+
 class produto(BaseModel):
     nome: str
     preco: float
@@ -105,16 +111,22 @@ class Pedido(Base):
 
 class pagamento(BaseModel):
     pedido_id: int
-    
+
+class pagamento_entrada(BaseModel):
+    pedido_id: int
+    aprovar: bool
+
 class Pagamento(Base):
     __tablename__ = "pagamentos"
     id = Column(Integer, primary_key=True, index=True)
     pedido_id = Column(Integer, ForeignKey("pedidos.id"))
+    status = Column(String)
+    valor = Column(Float)
 
 Base.metadata.create_all(bind=engine)
 
 @app.post("/produtos")
-def criar_produto(produto: produto, db: Session = Depends(get_db)):
+def criar_produto(produto: produto, db: Session = Depends(get_db), gerente: dict = Depends(apenas_gerente)):
     novo_produto = Produto(nome=produto.nome, preco=produto.preco)
     db.add(novo_produto)
     db.commit()
@@ -172,7 +184,7 @@ def criar_pedido(dados: pedido, db: Session = Depends(get_db), usuario_token: di
         
     email_do_token = usuario_token.get("sub")
     cliente = db.query(Usuario).filter(Usuario.email == email_do_token).first()
-    novo_pedido = Pedido(cliente_id = cliente_id, canalPedido= dados.canalPedido, status="AGUARDANDO_PAGAMENTO", total=total)
+    novo_pedido = Pedido(cliente_id = cliente.id, canalPedido= dados.canalPedido, status="Aguardando pagamento", total=total)
     db.add(novo_pedido)
     db.commit()
     db.refresh(novo_pedido)
@@ -194,8 +206,34 @@ def criar_pedido(dados: pedido, db: Session = Depends(get_db), usuario_token: di
     
     return {"pedidoId": novo_pedido.id, "status": novo_pedido.status, "total": novo_pedido.total}
 
+@app.post("/pagamentos")
+def criar_pagamento(dados: pagamento_entrada, db: Session = Depends(get_db), usuario_token: dict = Depends(usuariosCadastrados)):
+    pedido_banco = db.query(Pedido).filter(Pedido.id == dados.pedido_id).first()
+    if pedido_banco is None:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado.")
+
+    if pedido_banco.status != "Aguardando pagamento":
+        raise HTTPException(status_code=409, detail="Pedido não está aguardando pagamento.")
+
+    if dados.aprovar:
+        status_pagamento = "Aprovado"
+        status_pedido = "Sendo preparado"
+    else:
+        status_pagamento = "Recusado"
+        status_pedido = "Pagamento recusado"
+
+    novo_pagamento = Pagamento(pedido_id=pedido_banco.id, status=status_pagamento, valor=pedido_banco.total)
+    db.add(novo_pagamento)
+
+    pedido_banco.status = status_pedido
+
+    db.commit()
+    db.refresh(novo_pagamento)
+
+    return {"pagamentoId": novo_pagamento.id, "status": novo_pagamento.status, "valor": novo_pagamento.valor, "pedidoStatus": pedido_banco.status}
+
 @app.post("/estoques")
-def criar_estoque(estoque: estoque, db: Session = Depends(get_db)):
+def criar_estoque(estoque: estoque, db: Session = Depends(get_db), gerente: dict = Depends(apenas_gerente)):
     novo_estoque = Estoque(produto_id= estoque.produto_id, quantidade_estoque= estoque.quantidade_estoque)
     db.add(novo_estoque)
     db.commit()

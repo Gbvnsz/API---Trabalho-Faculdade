@@ -52,12 +52,44 @@ Com o servidor rodando, a documentação fica em:
 
 Pra testar dá pra usar direto por lá. A ordem que funciona é essa:
 
-1. Cadastrar um usuário (`POST /usuario`)
-2. Fazer login (`POST /auth/login`)
+1. Cadastrar um usuário com `perfil: "Gerente"` (`POST /usuario`)
+2. Fazer login com esse usuário (`POST /auth/login`)
 3. Copiar o token que volta no login
 4. Clicar em "Authorize" e colar o token
 5. Criar um produto (`POST /produtos`)
 6. Criar estoque pro produto que acabou de criar (`POST /estoques`)
-7. Criar o pedido (`POST /pedidos`)
+7. Cadastrar/logar agora com um usuário `perfil: "Cliente"` e criar o pedido (`POST /pedidos`)
+8. Pagar o pedido (`POST /pagamentos`, com `aprovar: true` ou `false`)
 
-Se pular alguma etapa (tipo criar pedido sem ter estoque cadastrado) a API vai reclamar, então é melhor seguir essa ordem mesmo.
+Se pular alguma etapa (tipo criar pedido sem ter estoque cadastrado) a API vai reclamar, então é melhor seguir essa ordem mesmo. Só o `Gerente` consegue criar produto e estoque — se tentar com `Cliente` a API responde 403.
+
+# Testando pelo Postman
+
+Tem uma collection pronta no repo: [`Raizes-do-Nordeste-API.postman_collection.json`](Raizes-do-Nordeste-API.postman_collection.json). É só importar no Postman (Import → File).
+
+Ela tá organizada em pastas: **Auth**, **Produtos**, **Estoque**, **Pedidos**, **Pagamentos** e **Erros**. As requisições encadeiam sozinhas (token, id do produto, id do pedido ficam salvos em variáveis de collection), então funciona rodar pasta por pasta, na ordem em que aparecem, com o servidor ligado.
+
+## Plano de testes
+
+12 cenários no total (6 positivos, 6 negativos), cobrindo autenticação/autorização, validação de dados, regras de negócio do pedido e o mock de pagamento:
+
+| ID | Cenário | Endpoint | Entrada (resumo) | Status esperado | Status obtido |
+|----|---------|----------|-------------------|------------------|----------------|
+| T01 | Cadastrar usuário | `POST /usuario` | email/senha/perfil válidos | 200 | 200 |
+| T02 | Login válido | `POST /auth/login` | credenciais corretas | 200 + token | 200 |
+| T03 | Criar produto (Gerente) | `POST /produtos` | token de Gerente | 200 | 200 |
+| T04 | Criar estoque (Gerente) | `POST /estoques` | token de Gerente | 200 | 200 |
+| T05 | Criar pedido válido | `POST /pedidos` | produto e estoque existentes | 201 | 201 |
+| T06 | Pagamento aprovado | `POST /pagamentos` | `aprovar: true` | 200 + "Sendo preparado" | 200 |
+| T07 | Acesso sem token | `GET /produtos` | sem header Authorization | 401 | 401 |
+| T08 | Criar produto como Cliente | `POST /produtos` | token de Cliente | 403 | 403 |
+| T09 | Pedido com produto inexistente | `POST /pedidos` | `produto_id` que não existe | 404 | 404 |
+| T10 | Pedido com estoque insuficiente | `POST /pedidos` | quantidade maior que o estoque | 409 | 409 |
+| T11 | Pedido sem `canalPedido` | `POST /pedidos` | campo obrigatório ausente | 422 | 422 |
+| T12 | Pagamento recusado | `POST /pagamentos` | `aprovar: false` | 200 + "Pagamento recusado" | 200 |
+
+Todos rodados manualmente contra o servidor local antes de subir a collection — bateu 100% com o esperado.
+
+## Logs/auditoria — não implementado
+
+O roteiro pede registro de logs/auditoria das operações, e isso **não foi implementado** neste projeto. Não existe nenhuma tabela ou arquivo guardando quem fez o quê e quando (só o que já é padrão do próprio `uvicorn` no terminal). Ficou de fora por causa do tempo pra fechar o fluxo principal (autenticação, autorização, pedido e pagamento) primeiro — é uma melhoria futura, não uma coisa que esqueci sem perceber.

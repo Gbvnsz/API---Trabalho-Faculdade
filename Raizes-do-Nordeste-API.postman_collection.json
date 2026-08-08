@@ -1,0 +1,572 @@
+{
+  "info": {
+    "_postman_id": "a2f6b1a0-7c3e-4e9a-9d2f-1f6b3c8e4d10",
+    "name": "Raízes do Nordeste - API",
+    "description": "Collection de testes da API do mercado (FastAPI). Pastas: Auth, Produtos, Estoque, Pedidos, Pagamentos e Erros. Rode as pastas na ordem em que aparecem para os IDs de token/produto/pedido serem encadeados automaticamente entre as requisições (variáveis de collection).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000", "type": "string" },
+    { "key": "cliente_token", "value": "", "type": "string" },
+    { "key": "gerente_token", "value": "", "type": "string" },
+    { "key": "produto_id", "value": "", "type": "string" },
+    { "key": "produto_id_baixo_estoque", "value": "", "type": "string" },
+    { "key": "pedido_id", "value": "", "type": "string" },
+    { "key": "pedido_id_2", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "T01 - Cadastrar usuário (Cliente)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente.postman@teste.com\",\n  \"senha\": \"senha123\",\n  \"perfil\": \"Cliente\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/usuario", "host": [ "{{base_url}}" ], "path": [ "usuario" ] }
+          },
+          "response": []
+        },
+        {
+          "name": "Setup - Cadastrar usuário (Gerente)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"gerente.postman@teste.com\",\n  \"senha\": \"senha123\",\n  \"perfil\": \"Gerente\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/usuario", "host": [ "{{base_url}}" ], "path": [ "usuario" ] }
+          },
+          "response": []
+        },
+        {
+          "name": "T02 - Login válido (Cliente)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Retorna accessToken\", function () {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"accessToken\");",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"cliente_token\", pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente.postman@teste.com\",\n  \"senha\": \"senha123\",\n  \"perfil\": \"Cliente\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/auth/login", "host": [ "{{base_url}}" ], "path": [ "auth", "login" ] }
+          },
+          "response": []
+        },
+        {
+          "name": "Setup - Login (Gerente)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"gerente_token\", pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"gerente.postman@teste.com\",\n  \"senha\": \"senha123\",\n  \"perfil\": \"Gerente\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/auth/login", "host": [ "{{base_url}}" ], "path": [ "auth", "login" ] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Produtos",
+      "item": [
+        {
+          "name": "T03 - Criar produto (Gerente)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const criado = pm.response.json();",
+                  "",
+                  "pm.sendRequest({",
+                  "    url: pm.collectionVariables.get(\"base_url\") + \"/produtos\",",
+                  "    method: \"GET\",",
+                  "    header: { Authorization: \"Bearer \" + pm.collectionVariables.get(\"gerente_token\") }",
+                  "}, function (err, res) {",
+                  "    if (!err && res.code === 200) {",
+                  "        const produtos = res.json();",
+                  "        const encontrado = produtos.slice().reverse().find(function (p) {",
+                  "            return p.nome === criado.nome && p.preco === criado.preco;",
+                  "        });",
+                  "        if (encontrado) {",
+                  "            pm.collectionVariables.set(\"produto_id\", encontrado.id);",
+                  "        }",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{gerente_token}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Tapioca Postman\",\n  \"preco\": 12.5\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/produtos", "host": [ "{{base_url}}" ], "path": [ "produtos" ] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Estoque",
+      "item": [
+        {
+          "name": "T04 - Criar estoque (Gerente)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{gerente_token}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produto_id\": {{produto_id}},\n  \"quantidade_estoque\": 20\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/estoques", "host": [ "{{base_url}}" ], "path": [ "estoques" ] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Pedidos",
+      "item": [
+        {
+          "name": "T05 - Criar pedido válido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"pedido_id\", pm.response.json().pedidoId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{cliente_token}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canalPedido\": \"loja\",\n  \"itens\": [\n    { \"produto_id\": {{produto_id}}, \"quantidade\": 2 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/pedidos", "host": [ "{{base_url}}" ], "path": [ "pedidos" ] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Pagamentos",
+      "item": [
+        {
+          "name": "T06 - Pagamento aprovado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Pedido fica 'Sendo preparado'\", function () {",
+                  "    pm.expect(pm.response.json().pedidoStatus).to.eql(\"Sendo preparado\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{cliente_token}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pedido_id\": {{pedido_id}},\n  \"aprovar\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/pagamentos", "host": [ "{{base_url}}" ], "path": [ "pagamentos" ] }
+          },
+          "response": []
+        },
+        {
+          "name": "Setup - Criar segundo pedido (para teste de recusa)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"pedido_id_2\", pm.response.json().pedidoId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{cliente_token}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canalPedido\": \"loja\",\n  \"itens\": [\n    { \"produto_id\": {{produto_id}}, \"quantidade\": 1 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/pedidos", "host": [ "{{base_url}}" ], "path": [ "pedidos" ] }
+          },
+          "response": []
+        },
+        {
+          "name": "T12 - Pagamento recusado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Pedido fica 'Pagamento recusado'\", function () {",
+                  "    pm.expect(pm.response.json().pedidoStatus).to.eql(\"Pagamento recusado\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{cliente_token}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pedido_id\": {{pedido_id_2}},\n  \"aprovar\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/pagamentos", "host": [ "{{base_url}}" ], "path": [ "pagamentos" ] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Erros",
+      "item": [
+        {
+          "name": "T07 - GET /produtos sem token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "noauth" },
+            "url": { "raw": "{{base_url}}/produtos", "host": [ "{{base_url}}" ], "path": [ "produtos" ] }
+          },
+          "response": []
+        },
+        {
+          "name": "T08 - Criar produto como Cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{cliente_token}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Não deveria criar\",\n  \"preco\": 1.0\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/produtos", "host": [ "{{base_url}}" ], "path": [ "produtos" ] }
+          },
+          "response": []
+        },
+        {
+          "name": "T09 - Pedido com produto inexistente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{cliente_token}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canalPedido\": \"loja\",\n  \"itens\": [\n    { \"produto_id\": 999999, \"quantidade\": 1 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/pedidos", "host": [ "{{base_url}}" ], "path": [ "pedidos" ] }
+          },
+          "response": []
+        },
+        {
+          "name": "Setup - Produto para teste de estoque insuficiente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const criado = pm.response.json();",
+                  "",
+                  "pm.sendRequest({",
+                  "    url: pm.collectionVariables.get(\"base_url\") + \"/produtos\",",
+                  "    method: \"GET\",",
+                  "    header: { Authorization: \"Bearer \" + pm.collectionVariables.get(\"gerente_token\") }",
+                  "}, function (err, res) {",
+                  "    if (!err && res.code === 200) {",
+                  "        const produtos = res.json();",
+                  "        const encontrado = produtos.slice().reverse().find(function (p) {",
+                  "            return p.nome === criado.nome && p.preco === criado.preco;",
+                  "        });",
+                  "        if (encontrado) {",
+                  "            pm.collectionVariables.set(\"produto_id_baixo_estoque\", encontrado.id);",
+                  "        }",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{gerente_token}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Produto Estoque Baixo\",\n  \"preco\": 5.0\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/produtos", "host": [ "{{base_url}}" ], "path": [ "produtos" ] }
+          },
+          "response": []
+        },
+        {
+          "name": "Setup - Estoque baixo (1 unidade)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{gerente_token}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produto_id\": {{produto_id_baixo_estoque}},\n  \"quantidade_estoque\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/estoques", "host": [ "{{base_url}}" ], "path": [ "estoques" ] }
+          },
+          "response": []
+        },
+        {
+          "name": "T10 - Pedido com estoque insuficiente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{cliente_token}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canalPedido\": \"loja\",\n  \"itens\": [\n    { \"produto_id\": {{produto_id_baixo_estoque}}, \"quantidade\": 5 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/pedidos", "host": [ "{{base_url}}" ], "path": [ "pedidos" ] }
+          },
+          "response": []
+        },
+        {
+          "name": "T11 - Pedido sem canalPedido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 422\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{cliente_token}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itens\": [\n    { \"produto_id\": {{produto_id}}, \"quantidade\": 1 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/pedidos", "host": [ "{{base_url}}" ], "path": [ "pedidos" ] }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
