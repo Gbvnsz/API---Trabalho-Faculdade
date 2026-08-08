@@ -169,7 +169,6 @@ def criar_pedido(dados: pedido, db: Session = Depends(get_db), usuario_token: di
         
     email_do_token = usuario_token.get("sub")
     cliente = db.query(Usuario).filter(Usuario.email == email_do_token).first()
-    
     novo_pedido = Pedido(cliente_id = cliente_id, canalPedido= dados.canalPedido, status="AGUARDANDO_PAGAMENTO", total=total)
     db.add(novo_pedido)
     db.commit()
