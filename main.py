@@ -1,3 +1,4 @@
+import os
 from typing import List
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
@@ -8,9 +9,11 @@ from sqlalchemy import Column, Integer, String, Float, Boolean
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
-# Usei o powershell para gerar uma chave aleatória 
-SECRET_KEY = "vp75eutcSmaOEZlJCV6M0ULHhqQWdno89B41KGyNPjRDiszkYw"   
+load_dotenv()
+
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
