@@ -1,6 +1,6 @@
-# API Mercado
+# Raízes do Nordeste - API
 
-Essa é uma API que fiz pra faculdade simulando o backend de um mercado: cadastro de usuário, login com JWT, cadastro de produto, controle de estoque e criação de pedido. Usei FastAPI + SQLAlchemy com um banco SQLite mesmo, pra manter simples.
+Essa é uma API que fiz pra faculdade simulando o backend da "Raízes do Nordeste", uma rede de lanchonetes: cadastro de usuário, login com JWT, cadastro de produto (item de cardápio), controle de estoque e criação de pedido. Usei FastAPI + SQLAlchemy com um banco SQLite mesmo, pra manter simples.
 
 # Requisitos
 
@@ -67,29 +67,29 @@ Se pular alguma etapa (tipo criar pedido sem ter estoque cadastrado) a API vai r
 
 Tem uma collection pronta no repo: [`Raizes-do-Nordeste-API.postman_collection.json`](Raizes-do-Nordeste-API.postman_collection.json). É só importar no Postman (Import → File).
 
-Ela tá organizada em pastas: **Auth**, **Produtos**, **Estoque**, **Pedidos**, **Pagamentos** e **Erros**. As requisições encadeiam sozinhas (token, id do produto, id do pedido ficam salvos em variáveis de collection), então funciona rodar pasta por pasta, na ordem em que aparecem, com o servidor ligado.
+Ela tá organizada em pastas: **Auth**, **Produtos**, **Estoque**, **Pedidos**, **Pagamentos** e **Erros**. As requisições encadeiam sozinhas via script na aba Tests (token, id do produto, id do pedido ficam salvos em variáveis de collection), então funciona rodar pasta por pasta, na ordem em que aparecem, com o servidor ligado — sem precisar copiar/colar nada manualmente. Isso foi validado rodando a collection inteira com o Newman (CLI do Postman) direto contra a API: 19 requisições, 20 asserts, 0 falhas.
 
 ## Plano de testes
 
-12 cenários no total (6 positivos, 6 negativos), cobrindo autenticação/autorização, validação de dados, regras de negócio do pedido e o mock de pagamento:
+12 cenários no total (6 positivos, 6 negativos), cobrindo autenticação/autorização, validação de dados, regras de negócio do pedido e o mock de pagamento. Todos rodados manualmente contra o servidor local antes de subir a collection — bateu 100% com o esperado. A coluna "Evidência" indica o nome da requisição correspondente na collection Postman.
 
-| ID | Cenário | Endpoint | Entrada (resumo) | Status esperado | Status obtido |
-|----|---------|----------|-------------------|------------------|----------------|
-| T01 | Cadastrar usuário | `POST /usuario` | email/senha/perfil válidos | 200 | 200 |
-| T02 | Login válido | `POST /auth/login` | credenciais corretas | 200 + token | 200 |
-| T03 | Criar produto (Gerente) | `POST /produtos` | token de Gerente | 200 | 200 |
-| T04 | Criar estoque (Gerente) | `POST /estoques` | token de Gerente | 200 | 200 |
-| T05 | Criar pedido válido | `POST /pedidos` | produto e estoque existentes | 201 | 201 |
-| T06 | Pagamento aprovado | `POST /pagamentos` | `aprovar: true` | 200 + "Sendo preparado" | 200 |
-| T07 | Acesso sem token | `GET /produtos` | sem header Authorization | 401 | 401 |
-| T08 | Criar produto como Cliente | `POST /produtos` | token de Cliente | 403 | 403 |
-| T09 | Pedido com produto inexistente | `POST /pedidos` | `produto_id` que não existe | 404 | 404 |
-| T10 | Pedido com estoque insuficiente | `POST /pedidos` | quantidade maior que o estoque | 409 | 409 |
-| T11 | Pedido sem `canalPedido` | `POST /pedidos` | campo obrigatório ausente | 422 | 422 |
-| T12 | Pagamento recusado | `POST /pagamentos` | `aprovar: false` | 200 + "Pagamento recusado" | 200 |
+*(Tabela larga — se for colar no Word, usar orientação paisagem ou reduzir a fonte pra 9pt.)*
 
-Todos rodados manualmente contra o servidor local antes de subir a collection — bateu 100% com o esperado.
+| ID | Cenário | Endpoint | Pré-condição | Entrada | Saída esperada | Evidência |
+|----|---------|----------|---------------|---------|-----------------|-----------|
+| T01 | Cadastrar usuário | `POST /usuario` | — | `{email, senha, perfil: "Cliente"}` | 200 + `{email, perfil}` | Auth/T01 - Cadastrar usuário (Cliente) |
+| T02 | Login válido | `POST /auth/login` | usuário cadastrado (T01) | `{email, senha}` | 200 + `accessToken` | Auth/T02 - Login válido (Cliente) |
+| T03 | Criar produto (Gerente) | `POST /produtos` | usuário Gerente autenticado | `{nome, preco}` | 200 + `{nome, preco}` | Produtos/T03 - Criar produto (Gerente) |
+| T04 | Criar estoque (Gerente) | `POST /estoques` | produto id=1 criado (T03), Gerente autenticado | `{produto_id: 1, quantidade_estoque: 20}` | 200 + `{produtoId, Quantidade_no_estoque}` | Estoque/T04 - Criar estoque (Gerente) |
+| T05 | Criar pedido válido | `POST /pedidos` | produto id=1 com estoque=20, Cliente autenticado | `{canalPedido: "loja", itens: [{produto_id: 1, quantidade: 2}]}` | 201 + `pedidoId` + status "Aguardando pagamento" | Pedidos/T05 - Criar pedido válido |
+| T06 | Pagamento aprovado | `POST /pagamentos` | pedido id=1 "Aguardando pagamento" (T05) | `{pedido_id: 1, aprovar: true}` | 200 + pedido vira "Sendo preparado" | Pagamentos/T06 - Pagamento aprovado |
+| T07 | Acesso sem token | `GET /produtos` | — | sem header `Authorization` | 401 + erro padrão | Erros/T07 - GET /produtos sem token |
+| T08 | Criar produto como Cliente | `POST /produtos` | usuário Cliente autenticado | `{nome, preco}` | 403 + "Requer ser Gerente" | Erros/T08 - Criar produto como Cliente |
+| T09 | Pedido com produto inexistente | `POST /pedidos` | Cliente autenticado | `{produto_id: 999999, quantidade: 1}` | 404 + "Produto não encontrado" | Erros/T09 - Pedido com produto inexistente |
+| T10 | Pedido com estoque insuficiente | `POST /pedidos` | produto id=2 com estoque=1, Cliente autenticado | `{produto_id: 2, quantidade: 5}` | 409 + "Estoque insuficiente" | Erros/T10 - Pedido com estoque insuficiente |
+| T11 | Pedido sem `canalPedido` | `POST /pedidos` | Cliente autenticado | `{itens: [{produto_id: 1, quantidade: 1}]}` (sem `canalPedido`) | 422 + erro de validação do campo | Erros/T11 - Pedido sem canalPedido |
+| T12 | Pagamento recusado | `POST /pagamentos` | pedido id=2 "Aguardando pagamento" (segundo pedido criado à parte) | `{pedido_id: 2, aprovar: false}` | 200 + pedido vira "Pagamento recusado" | Pagamentos/T12 - Pagamento recusado |
 
-## Logs/auditoria — não implementado
+**Logs e auditoria:** não implementado nesta versão. O sistema não registra trilha de auditoria das operações sensíveis. Declarado explicitamente conforme orientação do roteiro; previsto como evolução futura.
 
-O roteiro pede registro de logs/auditoria das operações, e isso **não foi implementado** neste projeto. Não existe nenhuma tabela ou arquivo guardando quem fez o quê e quando (só o que já é padrão do próprio `uvicorn` no terminal). Ficou de fora por causa do tempo pra fechar o fluxo principal (autenticação, autorização, pedido e pagamento) primeiro — é uma melhoria futura, não uma coisa que esqueci sem perceber.
+**Como reproduzir:** importar o `.json` da collection no Postman, subir a API (`uvicorn main:app --reload`) e seguir a ordem sugerida — cadastrar usuário → login → copiar token → Authorize → criar produto/estoque → criar pedido → pagamento.
